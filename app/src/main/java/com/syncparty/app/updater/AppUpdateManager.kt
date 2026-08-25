@@ -28,8 +28,10 @@ data class AppUpdateInfo(
 class AppUpdateManager(private val context: Context) {
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
     private val gson = Gson()
@@ -66,7 +68,7 @@ class AppUpdateManager(private val context: Context) {
     suspend fun checkForUpdates(): Result<AppUpdateInfo?> = withContext(Dispatchers.IO) {
         try {
             val checkUrl = sessionManager.updateUrlFlow.firstOrNull()
-                ?: "https://raw.githubusercontent.com/syncparty/app/main/version.json"
+                ?: "https://raw.githubusercontent.com/madannxd-jpg/SyncParty/main/version.json"
 
             val request = Request.Builder().url(checkUrl).build()
             val response = client.newCall(request).execute()
@@ -81,7 +83,7 @@ class AppUpdateManager(private val context: Context) {
             if (updateInfo.versionCode > getCurrentVersionCode()) {
                 Result.success(updateInfo)
             } else {
-                Result.success(null) // Already up to date
+                Result.success(null)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check for updates", e)
@@ -109,7 +111,7 @@ class AppUpdateManager(private val context: Context) {
 
             body.byteStream().use { input ->
                 FileOutputStream(apkFile).use { output ->
-                    val buffer = ByteArray(8 * 1024)
+                    val buffer = ByteArray(32 * 1024)
                     var bytesRead: Int
                     var totalRead = 0L
 
@@ -125,7 +127,6 @@ class AppUpdateManager(private val context: Context) {
                 }
             }
 
-            // Launch Native Android Package Installer
             withContext(Dispatchers.Main) {
                 installApk(apkFile)
             }
