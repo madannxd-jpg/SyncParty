@@ -70,10 +70,22 @@ class AppUpdateManager(private val context: Context) {
 
     suspend fun checkForUpdates(): Result<AppUpdateInfo?> = withContext(Dispatchers.IO) {
         try {
-            val checkUrl = sessionManager.updateUrlFlow.firstOrNull()
+            val baseUrl = sessionManager.updateUrlFlow.firstOrNull()
                 ?: "https://raw.githubusercontent.com/madannxd-jpg/SyncParty/main/version.json"
 
-            val request = Request.Builder().url(checkUrl).build()
+            // Append timestamp to bypass CDN/Fastly caching
+            val noCacheUrl = if (baseUrl.contains("?")) {
+                "$baseUrl&_t=${System.currentTimeMillis()}"
+            } else {
+                "$baseUrl?_t=${System.currentTimeMillis()}"
+            }
+
+            val request = Request.Builder()
+                .url(noCacheUrl)
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .build()
+
             val response = client.newCall(request).execute()
 
             if (!response.isSuccessful) {
@@ -143,7 +155,6 @@ class AppUpdateManager(private val context: Context) {
 
     fun installApk(apkFile: File) {
         try {
-            // Check unknown sources permission on Android 8.0+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 if (!context.packageManager.canRequestPackageInstalls()) {
                     Toast.makeText(context, "Please allow SyncParty to install updates", Toast.LENGTH_LONG).show()
@@ -168,7 +179,6 @@ class AppUpdateManager(private val context: Context) {
                         Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
 
-            // Grant read permission to all package installer handlers
             val resInfoList = context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
             for (resolveInfo in resInfoList) {
                 val packageName = resolveInfo.activityInfo.packageName
