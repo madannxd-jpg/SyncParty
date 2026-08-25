@@ -1,0 +1,7 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "apkUrl": "https://github.com/madannxd-jpg/SyncParty/releases/download/v1.0.0/SyncParty-v1.0.0.apk",
+  "changelog": "Initial Release: Google Sign-In, Screen Sharing, YouTube Sync, Crunchyroll & Instagram Hub, Voice Notes & SQLite Database",
+  "isMandatory": false
+}
