@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.ScreenShare
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.syncparty.app.data.local.RoomHistoryItem
 import com.syncparty.app.data.local.SyncPartyDbHelper
 import com.syncparty.app.data.local.UserProfile
+import com.syncparty.app.model.StreamMode
 import com.syncparty.app.sync.SignalingClient
 import com.syncparty.app.theme.*
 import com.syncparty.app.updater.AppUpdateInfo
@@ -39,9 +42,10 @@ import kotlinx.coroutines.withContext
 fun HomeScreen(
     userProfile: UserProfile,
     isDarkTheme: Boolean,
+    onOpenDrawer: () -> Unit,
     onToggleTheme: () -> Unit,
     onSignOut: () -> Unit,
-    onCreateRoom: (roomName: String) -> Unit,
+    onCreateRoom: (roomName: String, mode: StreamMode, mediaUrlOrId: String) -> Unit,
     onJoinRoom: (roomId: String, userName: String) -> Unit
 ) {
     val context = LocalContext.current
@@ -81,16 +85,33 @@ fun HomeScreen(
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Top Header with Profile Badge, Theme Switcher & Settings
+        // Top Header with Hamburger Sidebar Menu, Logo, Theme & Settings
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Sidebar Menu Toggle Button
+                IconButton(
+                    onClick = onOpenDrawer,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = "Open Sidebar Navigation",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Brush.linearGradient(listOf(PrimaryPurple, AccentPink))),
                     contentAlignment = Alignment.Center
@@ -99,10 +120,10 @@ fun HomeScreen(
                         Icons.Default.PlayArrow,
                         contentDescription = null,
                         tint = TextPrimaryDark,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
                         text = "SyncParty",
@@ -113,9 +134,9 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "v${updateManager.getCurrentVersionName()} ✨",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = AccentGreen
+                        text = "v${updateManager.getCurrentVersionName()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentCyan
                     )
                 }
             }
@@ -153,30 +174,7 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // New Update Success Banner for v1.2.0
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = AccentGreen.copy(alpha = 0.15f),
-            shape = RoundedCornerShape(12.dp),
-            border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(AccentGreen, AccentCyan)))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.RocketLaunch, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "🎉 v1.2.0 OTA Update Active & Connected!",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = AccentGreen
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Authenticated Google User Profile Card
         Card(
@@ -315,6 +313,76 @@ fun HomeScreen(
             }
         }
 
+        // Quick Launch Streaming Hubs (Now Clickable!)
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "⚡ Quick Launch Watch Party (Tap to Open)",
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.align(Alignment.Start)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Crunchyroll Hub (Clickable Launcher)
+            ClickableFeaturePill(
+                icon = Icons.Default.LockOpen,
+                title = "Crunchyroll Hub",
+                subtitle = "In-App Login & Anime",
+                color = AccentOrange,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onCreateRoom("Crunchyroll Watch Party", StreamMode.WEB_BROWSER, "https://www.crunchyroll.com")
+                }
+            )
+
+            // YouTube Sync (Clickable Launcher)
+            ClickableFeaturePill(
+                icon = Icons.Default.PlayCircle,
+                title = "YouTube Sync",
+                subtitle = "Party Playlists",
+                color = DangerRed,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onCreateRoom("YouTube Watch Party", StreamMode.YOUTUBE, "dQw4w9WgXcQ")
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Screen Share (Clickable Launcher)
+            ClickableFeaturePill(
+                icon = Icons.AutoMirrored.Filled.ScreenShare,
+                title = "Screen Share",
+                subtitle = "Games & Apps",
+                color = AccentCyan,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onCreateRoom("Screen Share Studio", StreamMode.SCREEN_SHARE, "local_screen")
+                }
+            )
+
+            // Instagram Hub (Clickable Launcher)
+            ClickableFeaturePill(
+                icon = Icons.Default.CameraAlt,
+                title = "Instagram Hub",
+                subtitle = "Reels & Posts",
+                color = AccentPink,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    onCreateRoom("Instagram Watch Party", StreamMode.WEB_BROWSER, "https://www.instagram.com")
+                }
+            )
+        }
+
         // Recent Rooms from Local SQLite Database
         if (recentRooms.isNotEmpty()) {
             Spacer(modifier = Modifier.height(24.dp))
@@ -353,62 +421,11 @@ fun HomeScreen(
                                 Text(item.roomName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
                                 Text("Code: ${item.roomId} • Host: ${item.hostName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Features Grid
-        Text(
-            text = "Supported Party Modes & Features",
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.Start)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            FeaturePill(
-                icon = Icons.AutoMirrored.Filled.ScreenShare,
-                title = "Screen Share",
-                subtitle = "Games & Apps",
-                color = AccentCyan,
-                modifier = Modifier.weight(1f)
-            )
-            FeaturePill(
-                icon = Icons.Default.PlayCircle,
-                title = "YouTube Sync",
-                subtitle = "Party Playlists",
-                color = DangerRed,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            FeaturePill(
-                icon = Icons.Default.LockOpen,
-                title = "Crunchyroll Hub",
-                subtitle = "In-App Login Sync",
-                color = AccentOrange,
-                modifier = Modifier.weight(1f)
-            )
-            FeaturePill(
-                icon = Icons.Default.Mic,
-                title = "Voice & Media Chat",
-                subtitle = "Voice Notes & Pics",
-                color = AccentPink,
-                modifier = Modifier.weight(1f)
-            )
         }
     }
 
@@ -439,7 +456,7 @@ fun HomeScreen(
                 Button(
                     onClick = {
                         showCreateDialog = false
-                        onCreateRoom(roomNameInput)
+                        onCreateRoom(roomNameInput, StreamMode.YOUTUBE, "dQw4w9WgXcQ")
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
                 ) {
@@ -510,7 +527,7 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = DangerRed.copy(alpha = 0.15f), contentColor = DangerRed)
                     ) {
-                        Icon(Icons.Default.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Sign Out", fontWeight = FontWeight.Bold)
                     }
@@ -575,18 +592,21 @@ fun HomeScreen(
 }
 
 @Composable
-private fun FeaturePill(
+private fun ClickableFeaturePill(
     icon: ImageVector,
     title: String,
     subtitle: String,
     color: Color,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier,
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder()
+        border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.outline, color.copy(alpha = 0.5f))))
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -594,12 +614,12 @@ private fun FeaturePill(
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(color.copy(alpha = 0.2f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column {

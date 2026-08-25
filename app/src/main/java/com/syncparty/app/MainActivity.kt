@@ -14,7 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -28,6 +28,8 @@ import com.syncparty.app.service.ScreenShareService
 import com.syncparty.app.sync.SignalingClient
 import com.syncparty.app.theme.SyncPartyTheme
 import com.syncparty.app.theme.ThemeMode
+import com.syncparty.app.ui.components.AppDestination
+import com.syncparty.app.ui.components.AppDrawerContent
 import com.syncparty.app.ui.screens.AuthScreen
 import com.syncparty.app.ui.screens.HomeScreen
 import com.syncparty.app.ui.screens.RoomScreen
@@ -44,6 +46,7 @@ class MainActivity : ComponentActivity() {
 
     private var isScreenSharing by mutableStateOf(false)
     private var currentScreen by mutableStateOf("auth")
+    private var currentDestination by mutableStateOf(AppDestination.HOME)
     private var isDarkTheme by mutableStateOf(true)
     private var currentUserProfile by mutableStateOf<UserProfile?>(null)
 
@@ -85,6 +88,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val coroutineScope = rememberCoroutineScope()
             val themeMode = if (isDarkTheme) ThemeMode.DARK else ThemeMode.LIGHT
+            val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
             LaunchedEffect(Unit) {
                 val profile = sessionManager.getUserProfile()
@@ -102,23 +106,83 @@ class MainActivity : ComponentActivity() {
                 Surface(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    when (currentScreen) {
-                        "auth" -> {
-                            AuthScreen(
-                                onLoginSuccess = { user ->
-                                    currentUserProfile = user
-                                    signalingClient.currentUserId = user.userId
-                                    signalingClient.currentUserName = user.displayName
-                                    currentScreen = "home"
+                    if (currentScreen == "auth") {
+                        AuthScreen(
+                            onLoginSuccess = { user ->
+                                currentUserProfile = user
+                                signalingClient.currentUserId = user.userId
+                                signalingClient.currentUserName = user.displayName
+                                currentScreen = "home"
+                            }
+                        )
+                    } else if (currentScreen == "room") {
+                        RoomScreen(
+                            isDarkTheme = isDarkTheme,
+                            onToggleTheme = { isDarkTheme = !isDarkTheme },
+                            isScreenSharing = isScreenSharing,
+                            onToggleScreenShare = {
+                                if (isScreenSharing) {
+                                    stopScreenShare()
+                                } else {
+                                    startScreenShare()
                                 }
-                            )
-                        }
-
-                        "home" -> {
-                            currentUserProfile?.let { user ->
+                            },
+                            onLeaveRoom = {
+                                stopScreenShare()
+                                currentScreen = "home"
+                            },
+                            onEnterPip = {
+                                enterPipMode()
+                            }
+                        )
+                    } else {
+                        // Multipage System with Navigation Drawer
+                        currentUserProfile?.let { user ->
+                            ModalNavigationDrawer(
+                                drawerState = drawerState,
+                                drawerContent = {
+                                    AppDrawerContent(
+                                        userProfile = user,
+                                        currentDestination = currentDestination,
+                                        onNavigate = { destination ->
+                                            currentDestination = destination
+                                            when (destination) {
+                                                AppDestination.HOME -> {}
+                                                AppDestination.CRUNCHYROLL -> {
+                                                    launchRoom("Crunchyroll Watch Party", StreamMode.WEB_BROWSER, "https://www.crunchyroll.com", user)
+                                                }
+                                                AppDestination.INSTAGRAM -> {
+                                                    launchRoom("Instagram Watch Party", StreamMode.WEB_BROWSER, "https://www.instagram.com", user)
+                                                }
+                                                AppDestination.YOUTUBE -> {
+                                                    launchRoom("YouTube Watch Party", StreamMode.YOUTUBE, "dQw4w9WgXcQ", user)
+                                                }
+                                                AppDestination.SCREEN_SHARE -> {
+                                                    launchRoom("Screen Share Studio", StreamMode.SCREEN_SHARE, "local_screen", user)
+                                                }
+                                                AppDestination.HISTORY -> {}
+                                                AppDestination.SETTINGS -> {}
+                                            }
+                                        },
+                                        onSignOut = {
+                                            coroutineScope.launch {
+                                                authManager.signOut()
+                                                currentUserProfile = null
+                                                currentScreen = "auth"
+                                            }
+                                        },
+                                        onCloseDrawer = {
+                                            coroutineScope.launch { drawerState.close() }
+                                        }
+                                    )
+                                }
+                            ) {
                                 HomeScreen(
                                     userProfile = user,
                                     isDarkTheme = isDarkTheme,
+                                    onOpenDrawer = {
+                                        coroutineScope.launch { drawerState.open() }
+                                    },
                                     onToggleTheme = { isDarkTheme = !isDarkTheme },
                                     onSignOut = {
                                         coroutineScope.launch {
@@ -127,18 +191,8 @@ class MainActivity : ComponentActivity() {
                                             currentScreen = "auth"
                                         }
                                     },
-                                    onCreateRoom = { roomName ->
-                                        val roomId = signalingClient.createRoom(roomName)
-                                        dbHelper.saveRoomHistory(
-                                            RoomHistoryItem(
-                                                roomId = roomId,
-                                                roomName = roomName,
-                                                hostName = user.displayName,
-                                                lastJoined = System.currentTimeMillis(),
-                                                activeMode = StreamMode.YOUTUBE
-                                            )
-                                        )
-                                        currentScreen = "room"
+                                    onCreateRoom = { roomName, mode, mediaUrl ->
+                                        launchRoom(roomName, mode, mediaUrl, user)
                                     },
                                     onJoinRoom = { roomId, userName ->
                                         signalingClient.joinRoom(roomId, userName)
@@ -156,32 +210,25 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-
-                        "room" -> {
-                            RoomScreen(
-                                isDarkTheme = isDarkTheme,
-                                onToggleTheme = { isDarkTheme = !isDarkTheme },
-                                isScreenSharing = isScreenSharing,
-                                onToggleScreenShare = {
-                                    if (isScreenSharing) {
-                                        stopScreenShare()
-                                    } else {
-                                        startScreenShare()
-                                    }
-                                },
-                                onLeaveRoom = {
-                                    stopScreenShare()
-                                    currentScreen = "home"
-                                },
-                                onEnterPip = {
-                                    enterPipMode()
-                                }
-                            )
-                        }
                     }
                 }
             }
         }
+    }
+
+    private fun launchRoom(roomName: String, mode: StreamMode, mediaUrlOrId: String, user: UserProfile) {
+        val roomId = signalingClient.createRoom(roomName)
+        signalingClient.updateStreamMode(mode, mediaUrlOrId)
+        dbHelper.saveRoomHistory(
+            RoomHistoryItem(
+                roomId = roomId,
+                roomName = roomName,
+                hostName = user.displayName,
+                lastJoined = System.currentTimeMillis(),
+                activeMode = mode
+            )
+        )
+        currentScreen = "room"
     }
 
     private fun checkPermissions() {
