@@ -1,7 +1,7 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1.0",
-  "apkUrl": "https://github.com/madannxd-jpg/SyncParty/releases/download/v1.1.0/SyncParty-v1.1.0.apk",
-  "changelog": "• Google Account Picker Popup\n• Faster WebRTC Screen Streaming\n• Enhanced Voice Notes & Chat",
+  "versionCode": 3,
+  "versionName": "1.2.0",
+  "apkUrl": "https://github.com/madannxd-jpg/SyncParty/releases/download/v1.2.0/SyncParty-v1.2.0.apk",
+  "changelog": "• 🎉 Test OTA Update v1.2.0 Live!\n• Added Celebration Banner on Home\n• Fixed FileProvider Package Installer",
   "isMandatory": false
 }

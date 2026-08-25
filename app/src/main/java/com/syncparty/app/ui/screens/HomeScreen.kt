@@ -113,9 +113,9 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "v${updateManager.getCurrentVersionName()}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AccentCyan
+                        text = "v${updateManager.getCurrentVersionName()} ✨",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = AccentGreen
                     )
                 }
             }
@@ -153,7 +153,30 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // New Update Success Banner for v1.2.0
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = AccentGreen.copy(alpha = 0.15f),
+            shape = RoundedCornerShape(12.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = Brush.horizontalGradient(listOf(AccentGreen, AccentCyan)))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.RocketLaunch, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "🎉 v1.2.0 OTA Update Active & Connected!",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = AccentGreen
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Authenticated Google User Profile Card
         Card(
