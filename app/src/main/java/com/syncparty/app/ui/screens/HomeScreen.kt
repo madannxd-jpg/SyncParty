@@ -31,7 +31,9 @@ import com.syncparty.app.theme.*
 import com.syncparty.app.updater.AppUpdateInfo
 import com.syncparty.app.updater.AppUpdateManager
 import com.syncparty.app.updater.UpdateDialog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeScreen(
@@ -51,6 +53,8 @@ fun HomeScreen(
     var roomNameInput by remember { mutableStateOf("My Watch Party") }
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showUpToDateDialog by remember { mutableStateOf(false) }
+    var isCheckingUpdates by remember { mutableStateOf(false) }
 
     var recentRooms by remember { mutableStateOf<List<RoomHistoryItem>>(emptyList()) }
 
@@ -442,26 +446,37 @@ fun HomeScreen(
                     
                     Button(
                         onClick = {
+                            isCheckingUpdates = true
                             coroutineScope.launch {
                                 val result = updateManager.checkForUpdates()
-                                result.onSuccess { info ->
-                                    if (info != null) {
-                                        availableUpdate = info
-                                        showSettingsDialog = false
-                                    } else {
-                                        Toast.makeText(context, "You are on the latest version! (v${updateManager.getCurrentVersionName()})", Toast.LENGTH_SHORT).show()
+                                isCheckingUpdates = false
+                                withContext(Dispatchers.Main) {
+                                    result.onSuccess { info ->
+                                        if (info != null) {
+                                            availableUpdate = info
+                                            showSettingsDialog = false
+                                        } else {
+                                            showSettingsDialog = false
+                                            showUpToDateDialog = true
+                                        }
+                                    }.onFailure { err ->
+                                        Toast.makeText(context, "Update check failed: ${err.message}", Toast.LENGTH_LONG).show()
                                     }
-                                }.onFailure {
-                                    Toast.makeText(context, "Could not reach update server", Toast.LENGTH_SHORT).show()
                                 }
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface)
                     ) {
-                        Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Check for Updates")
+                        if (isCheckingUpdates) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = AccentCyan)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Checking GitHub...")
+                        } else {
+                            Icon(Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Check for Updates")
+                        }
                     }
 
                     Button(
@@ -486,7 +501,33 @@ fun HomeScreen(
         )
     }
 
-    // In-App Update Dialog
+    // You are Up to Date Dialog
+    if (showUpToDateDialog) {
+        AlertDialog(
+            onDismissRequest = { showUpToDateDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = AccentGreen, modifier = Modifier.size(36.dp)) },
+            title = { Text("App is Up to Date!", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
+            text = {
+                Text(
+                    "You are currently running the latest version of SyncParty (v${updateManager.getCurrentVersionName()}).",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showUpToDateDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
+                ) {
+                    Text("OK", color = TextPrimaryDark)
+                }
+            }
+        )
+    }
+
+    // In-App Update Dialog (When new update is found)
     availableUpdate?.let { updateInfo ->
         UpdateDialog(
             updateInfo = updateInfo,
