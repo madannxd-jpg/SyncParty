@@ -1,7 +1,11 @@
 package com.syncparty.app.ui.screens
 
+import android.accounts.AccountManager
+import android.app.Activity
+import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.Image
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,10 +26,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.syncparty.app.auth.GoogleAuthManager
 import com.syncparty.app.data.local.UserProfile
+import com.syncparty.app.data.local.UserSessionManager
 import com.syncparty.app.theme.*
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @Composable
 fun AuthScreen(
@@ -34,8 +39,42 @@ fun AuthScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val authManager = remember { GoogleAuthManager(context) }
+    val sessionManager = remember { UserSessionManager.getInstance(context) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Native Android Google Account Chooser Launcher
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        isLoading = false
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            val accountName = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+            if (!accountName.isNullOrBlank()) {
+                val formattedName = if (accountName.contains("@")) {
+                    accountName.substringBefore("@").replace(".", " ")
+                        .split(" ")
+                        .joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+                } else {
+                    "Google User"
+                }
+
+                val userProfile = UserProfile(
+                    userId = UUID.randomUUID().toString().take(12),
+                    displayName = formattedName,
+                    email = accountName,
+                    avatarUrl = ""
+                )
+
+                coroutineScope.launch {
+                    sessionManager.saveSession(userProfile)
+                    Toast.makeText(context, "Signed in as $accountName", Toast.LENGTH_SHORT).show()
+                    onLoginSuccess(userProfile)
+                }
+            } else {
+                Toast.makeText(context, "No account selected", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -121,7 +160,7 @@ fun AuthScreen(
             )
         }
 
-        // Google Sign-In Button & Mandatory Registration Gate
+        // Google Sign-In Button with System Account Chooser
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -154,15 +193,22 @@ fun AuthScreen(
                     Button(
                         onClick = {
                             isLoading = true
-                            coroutineScope.launch {
-                                val result = authManager.signInWithGoogle()
+                            try {
+                                @Suppress("DEPRECATION")
+                                val intent = AccountManager.newChooseAccountIntent(
+                                    null,
+                                    null,
+                                    arrayOf("com.google"),
+                                    false,
+                                    null,
+                                    null,
+                                    null,
+                                    null
+                                )
+                                accountPickerLauncher.launch(intent)
+                            } catch (e: Exception) {
                                 isLoading = false
-                                result.onSuccess { user ->
-                                    Toast.makeText(context, "Welcome ${user.displayName}!", Toast.LENGTH_SHORT).show()
-                                    onLoginSuccess(user)
-                                }.onFailure { error ->
-                                    Toast.makeText(context, "Sign-in error: ${error.localizedMessage ?: "Unknown"}", Toast.LENGTH_LONG).show()
-                                }
+                                Toast.makeText(context, "Could not open Google account picker: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier
