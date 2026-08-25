@@ -60,10 +60,10 @@
             android:exported="false"
             android:foregroundServiceType="mediaProjection|microphone" />
 
-        <!-- FileProvider for In-App APK Auto-Updater -->
+        <!-- FileProvider for In-App APK Auto-Updater with dynamic applicationId -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.syncparty.app.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
